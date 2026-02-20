@@ -43,7 +43,7 @@ gem "image_processing", "~> 1.2"
 # CSV parsing and generation [https://github.com/ruby/csv]
 gem "csv"
 
-#Simple, efficient background jobs for Ruby.
+# Simple, efficient background jobs for Ruby.
 gem "sidekiq"
 
 group :development, :test do
