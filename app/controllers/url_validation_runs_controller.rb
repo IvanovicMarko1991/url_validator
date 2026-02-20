@@ -18,7 +18,7 @@ class UrlValidationRunsController < ApplicationController
   def fetch_invalid_jobs(run)
     run.url_validation_results
        .where.not(status: UrlValidationResult.statuses[:valid])
-       .includes(:job)
+       .includes(job: :company)
        .limit(INVALID_JOBS_LIMIT)
   end
 

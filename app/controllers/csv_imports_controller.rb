@@ -3,7 +3,8 @@ class CsvImportsController < ApplicationController
     file = extract_file_from_params
     csv_import = create_csv_import(file)
     import_result = import_jobs_from_csv(file, csv_import)
-    validation_run = start_url_validation(import_result, csv_import)
+    validation_run = create_validation_run(csv_import, import_result)
+    queue_background_validation(validation_run, import_result)
 
     render_success_response(csv_import, validation_run)
   end
@@ -22,21 +23,30 @@ class CsvImportsController < ApplicationController
     CsvImports::JobsImporter.call(file: file, csv_import: csv_import)
   end
 
-  def start_url_validation(import_result, csv_import)
-    UrlValidation::RunJobs.call(
-      job_ids: import_result.job_ids,
-      csv_import: csv_import
+  def create_validation_run(csv_import, import_result)
+    UrlValidationRun.create!(
+      csv_import: csv_import,
+      status: :pending,
+      total_count: import_result.job_ids.size,
+      processed_count: 0,
+      valid_count: 0,
+      invalid_count: 0
     )
   end
 
+  def queue_background_validation(validation_run, import_result)
+    UrlValidationRunWorker.perform_async(validation_run.id, import_result.job_ids)
+  end
+
   def render_success_response(csv_import, validation_run)
-    render json: build_response_payload(csv_import, validation_run), status: :created
+    render json: build_response_payload(csv_import, validation_run), status: :accepted
   end
 
   def build_response_payload(csv_import, validation_run)
     {
       csv_import: build_csv_import_data(csv_import),
-      validation_report: validation_run.summary
+      validation_run: validation_run.summary,
+      message: "Validation has been queued in background"
     }
   end
 

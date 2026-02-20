@@ -9,10 +9,12 @@ class UrlValidationRun < ApplicationRecord
       id: id,
       status: status,
       total_count: total_count,
+      processed_count: processed_count,
       valid_count: valid_count,
       invalid_count: invalid_count,
       started_at: started_at,
-      finished_at: finished_at
+      finished_at: finished_at,
+      error_message: error_message
     }
   end
 end

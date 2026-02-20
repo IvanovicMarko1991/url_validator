@@ -1,0 +1,5 @@
+:concurrency: 10
+
+:queues:
+  - [url_validation, 3]
+  - [default, 1]

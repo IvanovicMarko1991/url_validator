@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_20_120924) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_20_135755) do
   create_table "companies", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain"
@@ -70,6 +70,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_120924) do
     t.text "error_message"
     t.datetime "finished_at"
     t.integer "invalid_count", default: 0, null: false
+    t.integer "processed_count", default: 0, null: false
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
     t.integer "total_count", default: 0, null: false

@@ -4,21 +4,20 @@ module UrlValidation
     private_constant :BATCH_SIZE
 
     class << self
-      def call(job_ids:, csv_import: nil)
-        new(job_ids:, csv_import:).call
+      def call(run:, job_ids:)
+        new(run:, job_ids:).call
       end
     end
 
-    def initialize(job_ids:, csv_import: nil)
+    def initialize(run:, job_ids:)
+      @run = run
       @job_ids = Array(job_ids).uniq
-      @csv_import = csv_import
-      @run = nil
       @validation_counts = { valid: 0, invalid: 0 }
     end
 
     def call
-      @run = create_validation_run
-      process_jobs_batch
+      initialize_validation_run
+      process_jobs_in_batches
       complete_validation_run
       @run
     rescue StandardError => e
@@ -28,27 +27,31 @@ module UrlValidation
 
     private
 
-    attr_reader :job_ids, :csv_import, :run, :validation_counts
+    attr_reader :run, :job_ids, :validation_counts
 
-    def create_validation_run
-      UrlValidationRun.create!(
-        csv_import: csv_import,
+    def initialize_validation_run
+      run.update!(
         status: :running,
         started_at: Time.current,
-        total_count: job_ids.size
+        total_count: job_ids.size,
+        processed_count: 0,
+        valid_count: 0,
+        invalid_count: 0,
+        error_message: nil
       )
     end
 
-    def process_jobs_batch
+    def process_jobs_in_batches
       Job.where(id: job_ids).find_each(batch_size: BATCH_SIZE) do |job|
-        process_job(job)
+        process_single_job(job)
       end
     end
 
-    def process_job(job)
-      result = validate_job_url(job)
-      update_job_with_result(job, result)
-      track_result_status(result)
+    def process_single_job(job)
+      validation_result = validate_job_url(job)
+      update_job_with_result(job, validation_result)
+      track_validation_result(validation_result)
+      update_run_counters
     end
 
     def validate_job_url(job)
@@ -68,22 +71,31 @@ module UrlValidation
       )
     end
 
-    def track_result_status(result)
+    def track_validation_result(result)
       key = result.valid? ? :valid : :invalid
       validation_counts[key] += 1
+    end
+
+    def update_run_counters
+      run.update_columns(
+        processed_count: run.processed_count + 1,
+        valid_count: validation_counts[:valid],
+        invalid_count: validation_counts[:invalid]
+      )
+      run.reload
     end
 
     def complete_validation_run
       run.update!(
         status: :completed,
+        finished_at: Time.current,
         valid_count: validation_counts[:valid],
-        invalid_count: validation_counts[:invalid],
-        finished_at: Time.current
+        invalid_count: validation_counts[:invalid]
       )
     end
 
     def handle_validation_failure(error)
-      run&.update!(
+      run.update!(
         status: :failed,
         error_message: error.message,
         finished_at: Time.current
