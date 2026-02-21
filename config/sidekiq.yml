@@ -1,5 +1,5 @@
-:concurrency: 10
+:concurrency: 15
 
 :queues:
-  - [url_validation, 3]
-  - [default, 1]
+  - [url_validation, 5]
+  - [default, 2]

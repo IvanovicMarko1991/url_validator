@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_20_135755) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_21_125014) do
   create_table "companies", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain"
@@ -48,18 +48,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_135755) do
   end
 
   create_table "url_validation_results", force: :cascade do |t|
-    t.datetime "checked_at", null: false
+    t.integer "attempts_count", default: 0, null: false
+    t.datetime "checked_at"
     t.datetime "created_at", null: false
     t.text "error_message"
     t.text "final_url"
+    t.datetime "finished_at"
     t.integer "http_status"
     t.integer "job_id", null: false
+    t.datetime "lease_expires_at"
+    t.integer "processing_state", default: 0, null: false
     t.integer "response_time_ms"
-    t.integer "status", null: false
+    t.datetime "started_at"
+    t.integer "status"
     t.datetime "updated_at", null: false
     t.integer "url_validation_run_id", null: false
+    t.string "worker_jid"
     t.index ["job_id"], name: "index_url_validation_results_on_job_id"
+    t.index ["lease_expires_at"], name: "index_url_validation_results_on_lease_expires_at"
     t.index ["status"], name: "index_url_validation_results_on_status"
+    t.index ["url_validation_run_id", "job_id"], name: "idx_uvr_run_job_unique", unique: true
+    t.index ["url_validation_run_id", "processing_state"], name: "idx_uvr_run_processing"
     t.index ["url_validation_run_id", "status"], name: "idx_on_url_validation_run_id_status_4f477673d2"
     t.index ["url_validation_run_id"], name: "index_url_validation_results_on_url_validation_run_id"
   end
