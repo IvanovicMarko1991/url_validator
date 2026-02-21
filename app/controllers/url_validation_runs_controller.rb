@@ -1,51 +1,55 @@
 class UrlValidationRunsController < ApplicationController
-  INVALID_JOBS_LIMIT = 50
-  private_constant :INVALID_JOBS_LIMIT
+  SAMPLE_LIMIT = 25
+  private_constant :SAMPLE_LIMIT
 
   def show
-    run = find_validation_run
-    invalid_jobs = fetch_invalid_jobs(run)
+    run = find_run
 
-    render_validation_report(run, invalid_jobs)
+    render json: build_payload(run)
   end
 
   private
 
-  def find_validation_run
+  def find_run
     UrlValidationRun.find(params[:id])
   end
 
-  def fetch_invalid_jobs(run)
-    run.url_validation_results
-       .where.not(status: UrlValidationResult.statuses[:valid])
-       .includes(job: :company)
-       .limit(INVALID_JOBS_LIMIT)
-  end
-
-  def render_validation_report(run, invalid_jobs)
-    render json: build_report_payload(run, invalid_jobs)
-  end
-
-  def build_report_payload(run, invalid_jobs)
+  def build_payload(run)
     {
       report: run.summary,
-      invalid_jobs: format_invalid_jobs(invalid_jobs)
+      breakdown: build_breakdown(run),
+      samples: {
+        invalid_jobs: fetch_invalid_samples(run)
+      }
     }
   end
 
-  def format_invalid_jobs(invalid_jobs)
-    invalid_jobs.map { |result| format_invalid_job(result) }
+  def build_breakdown(run)
+    run.url_validation_results.group(:status).count.transform_keys do |k|
+      k.nil? ? "pending" : UrlValidationResult.statuses.key(k) || k
+    end
   end
 
-  def format_invalid_job(result)
+  def fetch_invalid_samples(run)
+    run.url_validation_results
+       .where.not(status: UrlValidationResult.statuses[:valid])
+       .where.not(status: nil)
+       .includes(job: :company)
+       .limit(SAMPLE_LIMIT)
+       .map { |r| format_invalid_sample(r) }
+  end
+
+  def format_invalid_sample(result)
     {
       job_id: result.job_id,
       job_title: result.job.title,
       company_name: result.job.company.name,
       external_url: result.job.external_url,
+      processing_state: result.processing_state,
       status: result.status,
       http_status: result.http_status,
-      error_message: result.error_message
+      error_message: result.error_message,
+      attempts_count: result.attempts_count
     }
   end
 end

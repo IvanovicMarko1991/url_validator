@@ -2,18 +2,20 @@ class CsvImportsController < ApplicationController
   skip_before_action :verify_authenticity_token, only: :create
 
   def create
-    file = extract_file_from_params
-    csv_import = create_csv_import(file)
-    import_result = import_jobs_from_csv(file, csv_import)
-    validation_run = create_validation_run(csv_import, import_result)
-    queue_background_validation(validation_run, import_result)
+    file = csv_file_param
 
-    render_success_response(csv_import, validation_run)
+    csv_import = create_csv_import(file)
+    import_result = import_jobs(file, csv_import)
+
+    run = create_validation_run(csv_import, import_result)
+    queue_prepare_run(run, import_result)
+
+    render json: response_payload(csv_import, run), status: :accepted
   end
 
   private
 
-  def extract_file_from_params
+  def csv_file_param
     params.require(:file)
   end
 
@@ -21,7 +23,7 @@ class CsvImportsController < ApplicationController
     CsvImport.create!(source_file: file.original_filename)
   end
 
-  def import_jobs_from_csv(file, csv_import)
+  def import_jobs(file, csv_import)
     CsvImports::JobsImporter.call(file: file, csv_import: csv_import)
   end
 
@@ -36,23 +38,19 @@ class CsvImportsController < ApplicationController
     )
   end
 
-  def queue_background_validation(validation_run, import_result)
-    UrlValidationRunWorker.perform_async(validation_run.id, import_result.job_ids)
+  def queue_prepare_run(run, import_result)
+    UrlValidationPrepareRunWorker.perform_async(run.id, import_result.job_ids)
   end
 
-  def render_success_response(csv_import, validation_run)
-    render json: build_response_payload(csv_import, validation_run), status: :accepted
-  end
-
-  def build_response_payload(csv_import, validation_run)
+  def response_payload(csv_import, run)
     {
-      csv_import: build_csv_import_data(csv_import),
-      validation_run: validation_run.summary,
-      message: "Validation has been queued in background"
+      csv_import: csv_import_data(csv_import),
+      validation_run: run.summary,
+      message: "Validation queued (fan-out mode)"
     }
   end
 
-  def build_csv_import_data(csv_import)
+  def csv_import_data(csv_import)
     {
       id: csv_import.id,
       source_file: csv_import.source_file,
