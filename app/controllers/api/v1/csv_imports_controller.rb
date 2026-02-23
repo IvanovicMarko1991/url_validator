@@ -1,7 +1,6 @@
 module Api
   module V1
     class CsvImportsController < Api::BaseController
-
       def create
         file = csv_file_param
 

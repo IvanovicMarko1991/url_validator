@@ -40,7 +40,7 @@ The goal is to generate a report showing how many job URLs are valid/invalid and
 ## Tech Stack
 
 - Ruby 3.4
-- Rails 8.x
+- Rails 8.1.2
 - PostgreSQL (recommended)
 - Sidekiq
 - Redis
