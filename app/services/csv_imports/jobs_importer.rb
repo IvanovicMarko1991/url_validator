@@ -61,13 +61,14 @@ module CsvImports
       title = extract_field(row, "title")
       external_url = extract_field(row, "external_url")
       external_id = row["external_id"]&.strip.presence
+      external_host = extract_field(row, "external_host")
 
       validate_required_fields(company_name, title, external_url)
 
       company = find_or_create_company(company_name)
       job = find_or_initialize_job(company, external_url, external_id)
 
-      update_job_attributes(job, title, external_url, external_id)
+      update_job_attributes(job, title, external_url, external_id, external_host)
       job.save!
 
       job_ids << job.id
@@ -103,6 +104,7 @@ module CsvImports
       job.title = title
       job.external_url = external_url
       job.external_id = external_id if external_id.present?
+      job.external_host = URI.parse(external_url).host rescue nil
     end
 
     def log_row_error(error)

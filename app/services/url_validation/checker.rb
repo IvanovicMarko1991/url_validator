@@ -7,6 +7,7 @@ module UrlValidation
     DEFAULT_USER_AGENT = "RailsUrlValidator/1.0".freeze
     REQUEST_TIMEOUT_OPEN = 3
     REQUEST_TIMEOUT_READ = 5
+    HEAD_REQUEST_FALLBACK_STATUSES = [ 405, 403, 501 ].freeze
 
     class << self
       def call(url)
@@ -25,7 +26,7 @@ module UrlValidation
       response = perform_request(uri)
       duration_ms = calculate_elapsed_ms(started)
 
-      build_success_result(response, uri, duration_ms)
+      classify_response(response, uri, duration_ms)
     rescue URI::InvalidURIError, ArgumentError => e
       build_malformed_url_result(e)
     rescue Net::OpenTimeout, Net::ReadTimeout
@@ -59,6 +60,36 @@ module UrlValidation
     end
 
     def perform_request(uri)
+      use_head_first = Rails.application.config.x.url_validator.head_first
+
+      if use_head_first
+        response = perform_head_request(uri)
+        # Fallback to GET if HEAD returns specific error statuses or raises timeout
+        response = perform_get_request(uri) if should_fallback_to_get?(response)
+        response
+      else
+        perform_get_request(uri)
+      end
+    end
+
+    def perform_head_request(uri)
+      Net::HTTP.start(
+        uri.host,
+        uri.port,
+        use_ssl: uri.scheme == "https",
+        open_timeout: REQUEST_TIMEOUT_OPEN,
+        read_timeout: REQUEST_TIMEOUT_READ
+      ) do |http|
+        request = Net::HTTP::Head.new(uri.request_uri.presence || "/")
+        request["User-Agent"] = DEFAULT_USER_AGENT
+        http.request(request)
+      end
+    rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, OpenSSL::SSL::SSLError
+      # On timeout or network error, fallback to GET
+      nil
+    end
+
+    def perform_get_request(uri)
       Net::HTTP.start(
         uri.host,
         uri.port,
@@ -69,6 +100,12 @@ module UrlValidation
         request = build_http_request(uri)
         http.request(request)
       end
+    end
+
+    def should_fallback_to_get?(response)
+      return false if response.nil?
+      return true if HEAD_REQUEST_FALLBACK_STATUSES.include?(response.code.to_i)
+      false
     end
 
     def build_http_request(uri)
@@ -83,7 +120,7 @@ module UrlValidation
       (elapsed * 1000).round
     end
 
-    def build_success_result(response, uri, duration_ms)
+    def classify_response(response, uri, duration_ms)
       case response
       when Net::HTTPSuccess
         build_valid_result(response, uri, duration_ms)

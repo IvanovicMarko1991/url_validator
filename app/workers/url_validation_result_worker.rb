@@ -4,6 +4,7 @@ class UrlValidationResultWorker
   sidekiq_options queue: :url_validation, retry: 8
 
   LEASE_DURATION = 2.minutes
+  RETRY_DELAY_RANGE = 1.0..3.0
 
   sidekiq_retries_exhausted do |msg, ex|
     result_id = msg["args"].first
@@ -14,6 +15,11 @@ class UrlValidationResultWorker
     return unless claim_result(result_id)
 
     result = fetch_result(result_id)
+
+    unless check_rate_limit(result)
+      return
+    end
+
     payload, duration_ms = perform_check(result)
     complete_result!(result_id: result.id, payload: payload, duration_ms: duration_ms)
   rescue => e
@@ -23,6 +29,7 @@ class UrlValidationResultWorker
 
   private
 
+  # Completes the URL validation result with the check payload and updates counters
   def complete_result!(result_id:, payload:, duration_ms:)
     UrlValidationResult.transaction do
       result = UrlValidationResult.lock.includes(:job).find(result_id)
@@ -102,6 +109,7 @@ class UrlValidationResultWorker
       url: result.job.external_url
     ) do
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
       payload = UrlValidation::Checker.call(result.job.external_url)
       duration_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
     end
@@ -119,5 +127,16 @@ class UrlValidationResultWorker
         error_message: error.message
       }.to_json
     )
+  end
+
+  def check_rate_limit(result)
+    host = result.job.external_host
+
+    unless UrlValidation::DomainRateLimiter.allow?(host)
+      self.class.perform_in(rand(RETRY_DELAY_RANGE), result.id)
+      return false
+    end
+
+    true
   end
 end

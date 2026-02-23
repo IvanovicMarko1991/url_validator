@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_21_125014) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_21_160608) do
   create_table "companies", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain"
@@ -34,6 +34,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_21_125014) do
   create_table "jobs", force: :cascade do |t|
     t.integer "company_id", null: false
     t.datetime "created_at", null: false
+    t.string "external_host"
     t.string "external_id"
     t.text "external_url", null: false
     t.text "last_error"
@@ -44,6 +45,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_21_125014) do
     t.datetime "updated_at", null: false
     t.index ["company_id", "external_id"], name: "index_jobs_on_company_id_and_external_id", unique: true
     t.index ["company_id"], name: "index_jobs_on_company_id"
+    t.index ["external_host"], name: "index_jobs_on_external_host"
     t.index ["last_validation_status"], name: "index_jobs_on_last_validation_status"
   end
 
@@ -56,11 +58,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_21_125014) do
     t.datetime "finished_at"
     t.integer "http_status"
     t.integer "job_id", null: false
+    t.datetime "last_retry_at"
     t.datetime "lease_expires_at"
     t.integer "processing_state", default: 0, null: false
     t.integer "response_time_ms"
+    t.boolean "retry_eligible", default: true, null: false
     t.datetime "started_at"
     t.integer "status"
+    t.integer "timeout_retry_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.integer "url_validation_run_id", null: false
     t.string "worker_jid"
@@ -69,6 +74,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_21_125014) do
     t.index ["status"], name: "index_url_validation_results_on_status"
     t.index ["url_validation_run_id", "job_id"], name: "idx_uvr_run_job_unique", unique: true
     t.index ["url_validation_run_id", "processing_state"], name: "idx_uvr_run_processing"
+    t.index ["url_validation_run_id", "status", "timeout_retry_count"], name: "idx_uvr_timeout_retry"
     t.index ["url_validation_run_id", "status"], name: "idx_on_url_validation_run_id_status_4f477673d2"
     t.index ["url_validation_run_id"], name: "index_url_validation_results_on_url_validation_run_id"
   end
