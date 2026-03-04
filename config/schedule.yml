@@ -1,0 +1,6 @@
+cleanup_old_validation_data:
+  cron: "0 3 * * *"
+  class: "Maintenance::CleanupOldValidationDataWorker"
+  queue: maintenance
+  args:
+    retention_days: 30

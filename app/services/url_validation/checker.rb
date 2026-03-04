@@ -3,188 +3,146 @@ require "uri"
 
 module UrlValidation
   class Checker
-    SUPPORTED_SCHEMES = %w[http https].freeze
-    DEFAULT_USER_AGENT = "RailsUrlValidator/1.0".freeze
-    REQUEST_TIMEOUT_OPEN = 3
-    REQUEST_TIMEOUT_READ = 5
-    HEAD_REQUEST_FALLBACK_STATUSES = [ 405, 403, 501 ].freeze
+    MAX_REDIRECTS = Integer(ENV.fetch("URL_VALIDATOR_MAX_REDIRECTS", 5))
+    HEAD_FIRST = ENV.fetch("URL_VALIDATOR_HEAD_FIRST", "true") == "true"
+    FOLLOW_REDIRECTS = ENV.fetch("URL_VALIDATOR_FOLLOW_REDIRECTS", "false") == "true"
 
-    class << self
-      def call(url)
-        new(url).call
-      end
+    FALLBACK_TO_GET_HTTP_CODES = [ 403, 405, 501 ].freeze
+
+    def self.call(url)
+      new(url).call
     end
 
     def initialize(url)
       @url = url.to_s.strip
-      @checked_at = Time.current
     end
 
     def call
-      started = start_timer
-      uri = parse_uri!
-      response = perform_request(uri)
-      duration_ms = calculate_elapsed_ms(started)
+      started = mono_time
+      uri = parse_uri!(@url)
 
-      classify_response(response, uri, duration_ms)
+      response, final_uri = perform_request_flow(uri)
+
+      build_result(response:, final_uri:, started:)
     rescue URI::InvalidURIError, ArgumentError => e
-      build_malformed_url_result(e)
+      malformed(e)
     rescue Net::OpenTimeout, Net::ReadTimeout
-      build_timeout_result
+      timed_out
     rescue SocketError, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, OpenSSL::SSL::SSLError => e
-      build_network_error_result(e)
+      network_error(e)
     end
 
     private
 
-    attr_reader :url, :checked_at
+    def perform_request_flow(uri)
+      if HEAD_FIRST
+        head = request(uri, Net::HTTP::Head)
+        return follow_redirects_if_needed(head, uri) unless fallback_to_get?(head)
 
-    def start_timer
-      Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        get = request(uri, Net::HTTP::Get)
+        return follow_redirects_if_needed(get, uri)
+      end
+
+      get = request(uri, Net::HTTP::Get)
+      follow_redirects_if_needed(get, uri)
     end
 
-    def parse_uri!
-      uri = URI.parse(url)
-      validate_uri_scheme(uri)
-      validate_uri_host(uri)
+    def follow_redirects_if_needed(response, uri)
+      return [ response, uri ] unless response.is_a?(Net::HTTPRedirection)
+
+      return [ response, uri ] unless FOLLOW_REDIRECTS
+
+      current_uri = uri
+      current_response = response
+
+      MAX_REDIRECTS.times do
+        location = current_response["location"]
+        break if location.blank?
+
+        next_uri = resolve_location(current_uri, location)
+        current_uri = next_uri
+
+        current_response = request(current_uri, Net::HTTP::Get)
+        return [ current_response, current_uri ] unless current_response.is_a?(Net::HTTPRedirection)
+      end
+
+      [ current_response, current_uri ]
+    end
+
+    def resolve_location(base_uri, location)
+      loc = URI.parse(location)
+      loc = base_uri + location if loc.relative?
+      raise ArgumentError, "Redirect to non-http(s) URL" unless %w[http https].include?(loc.scheme)
+      loc
+    end
+
+    def fallback_to_get?(response)
+      FALLBACK_TO_GET_HTTP_CODES.include?(response.code.to_i)
+    end
+
+    def request(uri, request_class)
+      Net::HTTP.start(
+        uri.host,
+        uri.port,
+        use_ssl: uri.scheme == "https",
+        open_timeout: 3,
+        read_timeout: 5
+      ) do |http|
+        req = request_class.new(uri.request_uri.presence || "/")
+        req["User-Agent"] = "RailsUrlValidator/1.0"
+        http.request(req)
+      end
+    end
+
+    def parse_uri!(raw)
+      uri = URI.parse(raw)
+      raise ArgumentError, "URL must be http or https" unless %w[http https].include?(uri.scheme)
+      raise ArgumentError, "URL host missing" if uri.host.blank?
       uri
     end
 
-    def validate_uri_scheme(uri)
-      return if SUPPORTED_SCHEMES.include?(uri.scheme)
-      raise ArgumentError, "URL must be http or https"
-    end
+    def build_result(response:, final_uri:, started:)
+      duration_ms = elapsed_ms(started)
+      code = response.code.to_i
 
-    def validate_uri_host(uri)
-      raise ArgumentError, "URL host missing" if uri.host.blank?
-    end
-
-    def perform_request(uri)
-      use_head_first = Rails.application.config.x.url_validator.head_first
-
-      if use_head_first
-        response = perform_head_request(uri)
-        # Fallback to GET if HEAD returns specific error statuses or raises timeout
-        response = perform_get_request(uri) if should_fallback_to_get?(response)
-        response
+      if response.is_a?(Net::HTTPSuccess)
+        ok(:valid, code, final_uri, nil, duration_ms)
+      elsif response.is_a?(Net::HTTPRedirection)
+        ok(:redirected, code, response["location"], "Redirected", duration_ms)
       else
-        perform_get_request(uri)
+        ok(:invalid_http, code, final_uri, "HTTP #{code}", duration_ms)
       end
     end
 
-    def perform_head_request(uri)
-      Net::HTTP.start(
-        uri.host,
-        uri.port,
-        use_ssl: uri.scheme == "https",
-        open_timeout: REQUEST_TIMEOUT_OPEN,
-        read_timeout: REQUEST_TIMEOUT_READ
-      ) do |http|
-        request = Net::HTTP::Head.new(uri.request_uri.presence || "/")
-        request["User-Agent"] = DEFAULT_USER_AGENT
-        http.request(request)
-      end
-    rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, OpenSSL::SSL::SSLError
-      # On timeout or network error, fallback to GET
-      nil
-    end
-
-    def perform_get_request(uri)
-      Net::HTTP.start(
-        uri.host,
-        uri.port,
-        use_ssl: uri.scheme == "https",
-        open_timeout: REQUEST_TIMEOUT_OPEN,
-        read_timeout: REQUEST_TIMEOUT_READ
-      ) do |http|
-        request = build_http_request(uri)
-        http.request(request)
-      end
-    end
-
-    def should_fallback_to_get?(response)
-      return false if response.nil?
-      return true if HEAD_REQUEST_FALLBACK_STATUSES.include?(response.code.to_i)
-      false
-    end
-
-    def build_http_request(uri)
-      path = uri.request_uri.presence || "/"
-      request = Net::HTTP::Get.new(path)
-      request["User-Agent"] = DEFAULT_USER_AGENT
-      request
-    end
-
-    def calculate_elapsed_ms(started)
-      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
-      (elapsed * 1000).round
-    end
-
-    def classify_response(response, uri, duration_ms)
-      case response
-      when Net::HTTPSuccess
-        build_valid_result(response, uri, duration_ms)
-      when Net::HTTPRedirection
-        build_redirect_result(response, uri, duration_ms)
-      else
-        build_invalid_http_result(response, uri, duration_ms)
-      end
-    end
-
-    def build_valid_result(response, uri, duration_ms)
-      {
-        status: :valid,
-        http_status: response.code.to_i,
-        final_url: uri.to_s,
-        error_message: nil,
-        response_time_ms: duration_ms,
-        checked_at: checked_at
-      }
-    end
-
-    def build_redirect_result(response, uri, duration_ms)
-      {
-        status: :redirected,
-        http_status: response.code.to_i,
-        final_url: response["location"],
-        error_message: "Redirected",
-        response_time_ms: duration_ms,
-        checked_at: checked_at
-      }
-    end
-
-    def build_invalid_http_result(response, uri, duration_ms)
-      {
-        status: :invalid_http,
-        http_status: response.code.to_i,
-        final_url: uri.to_s,
-        error_message: "HTTP #{response.code}",
-        response_time_ms: duration_ms,
-        checked_at: checked_at
-      }
-    end
-
-    def build_malformed_url_result(error)
-      build_error_result(:malformed_url, error.message)
-    end
-
-    def build_timeout_result
-      build_error_result(:timed_out, "Request timed out")
-    end
-
-    def build_network_error_result(error)
-      build_error_result(:network_error, error.message)
-    end
-
-    def build_error_result(status, error_message)
+    def ok(status, http_status, final_uri, error_message, ms)
       {
         status: status,
-        http_status: nil,
-        final_url: nil,
+        http_status: http_status,
+        final_url: final_uri.to_s,
         error_message: error_message,
-        response_time_ms: nil,
-        checked_at: checked_at
+        response_time_ms: ms,
+        checked_at: Time.current
       }
+    end
+
+    def malformed(e)
+      { status: :malformed_url, http_status: nil, final_url: nil, error_message: e.message, response_time_ms: nil, checked_at: Time.current }
+    end
+
+    def timed_out
+      { status: :timed_out, http_status: nil, final_url: nil, error_message: "Request timed out", response_time_ms: nil, checked_at: Time.current }
+    end
+
+    def network_error(e)
+      { status: :network_error, http_status: nil, final_url: nil, error_message: e.message, response_time_ms: nil, checked_at: Time.current }
+    end
+
+    def mono_time
+      Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    end
+
+    def elapsed_ms(started)
+      ((mono_time - started) * 1000).round
     end
   end
 end

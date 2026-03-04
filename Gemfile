@@ -47,6 +47,7 @@ gem "csv"
 
 # Simple, efficient background jobs for Ruby.
 gem "sidekiq"
+gem "sidekiq-cron"
 gem "iron_admin"
 gem "tailwindcss-rails"
 gem "devise", "~> 5.0"

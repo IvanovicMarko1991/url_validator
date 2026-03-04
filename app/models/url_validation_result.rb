@@ -23,4 +23,15 @@ class UrlValidationResult < ApplicationRecord
 
   scope :unfinished, -> { where.not(processing_state: processing_states[:completed]) }
   scope :lease_expired, -> { where("lease_expires_at IS NOT NULL AND lease_expires_at < ?", Time.current) }
+  scope :dead_letter, lambda {
+    where(processing_state: processing_states[:completed])
+      .where(
+        "status = :internal_error OR (status = :timed_out AND timeout_retry_count >= :max)",
+        internal_error: statuses[:internal_error],
+        timed_out: statuses[:timed_out],
+        max: MAX_TIMEOUT_RETRIES
+      )
+  }
+
+  MAX_TIMEOUT_RETRIES = Integer(ENV.fetch("URL_VALIDATOR_TIMEOUT_RETRY_MAX", 2))
 end

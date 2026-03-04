@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_193055) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_04_204923) do
   create_table "companies", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain"
@@ -80,11 +80,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_193055) do
   end
 
   create_table "url_validation_runs", force: :cascade do |t|
+    t.text "cancel_reason"
+    t.datetime "canceled_at"
+    t.integer "canceled_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.integer "csv_import_id"
     t.text "error_message"
     t.datetime "finished_at"
     t.integer "invalid_count", default: 0, null: false
+    t.datetime "paused_at"
     t.integer "processed_count", default: 0, null: false
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
@@ -92,6 +96,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_193055) do
     t.datetime "updated_at", null: false
     t.integer "valid_count", default: 0, null: false
     t.index ["csv_import_id"], name: "index_url_validation_runs_on_csv_import_id"
+    t.index ["finished_at"], name: "index_url_validation_runs_on_finished_at"
+    t.index ["status"], name: "index_url_validation_runs_on_status"
   end
 
   create_table "users", force: :cascade do |t|

@@ -6,24 +6,28 @@ class UrlValidationRun < ApplicationRecord
     pending: 0,
     running: 1,
     completed: 2,
-    failed: 3
+    failed: 3,
+    paused: 4,
+    canceled: 5
   }
 
   def summary
-    total_count = total_count.to_i
-    processed_count = processed_count.to_i
-
+    total = total_count.to_i
+    processed = processed_count.to_i
     {
       id: id,
       status: status,
-      total_count: total_count,
-      processed_count: processed_count,
-      pending_count: [ total_count - processed_count, 0 ].max,
+      total_count: total,
+      processed_count: processed,
       valid_count: valid_count,
       invalid_count: invalid_count,
-      progress_pct: total_count.zero? ? 0 : ((processed_count.to_f / total_count) * 100).round(1),
+      canceled_count: canceled_count,
+      progress_pct: total.zero? ? 0 : ((processed.to_f / total) * 100).round(1),
       started_at: started_at,
       finished_at: finished_at,
+      paused_at: paused_at,
+      canceled_at: canceled_at,
+      cancel_reason: cancel_reason,
       error_message: error_message
     }
   end
