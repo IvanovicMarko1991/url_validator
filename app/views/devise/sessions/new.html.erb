@@ -1,0 +1,80 @@
+<div class="login-container">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="material-logo">
+        <div class="logo-layers">
+          <div class="layer layer-1"></div>
+          <div class="layer layer-2"></div>
+          <div class="layer layer-3"></div>
+        </div>
+      </div>
+
+      <h2>Sign in</h2>
+      <p>to continue to your account</p>
+    </div>
+
+    <%= form_for(resource, as: resource_name, url: session_path(resource_name),
+                 html: { class: "login-form", id: "loginForm" }) do |f| %>
+
+      <div class="form-group">
+        <div class="input-wrapper">
+          <%= f.email_field :email, id: "email", required: true, autocomplete: "email" %>
+          <label for="email">Email</label>
+          <div class="input-line"></div>
+          <div class="ripple-container"></div>
+        </div>
+        <span class="error-message" id="emailError"></span>
+      </div>
+
+      <div class="form-group">
+        <div class="input-wrapper password-wrapper">
+          <%= f.password_field :password, id: "password", required: true, autocomplete: "current-password" %>
+          <label for="password">Password</label>
+
+          <div class="input-line"></div>
+
+          <!-- This button is styled by the CSS; JS is optional -->
+          <button type="button" class="password-toggle" id="passwordToggle" aria-label="Toggle password visibility">
+            <div class="toggle-ripple"></div>
+            <span class="toggle-icon"></span>
+          </button>
+
+          <div class="ripple-container"></div>
+        </div>
+        <span class="error-message" id="passwordError"></span>
+      </div>
+
+      <div class="form-options">
+        <% if devise_mapping.rememberable? %>
+          <div class="checkbox-wrapper">
+            <%= f.check_box :remember_me, id: "remember" %>
+            <label for="remember" class="checkbox-label">
+              <div class="checkbox-material">
+                <div class="checkbox-check"></div>
+              </div>
+              Keep me signed in
+              <div class="checkbox-ripple"></div>
+            </label>
+          </div>
+        <% end %>
+
+        <%= link_to "Forgot password?", new_password_path(resource_name), class: "forgot-password" %>
+      </div>
+
+      <button type="submit" class="material-btn">
+        <span class="btn-text">SIGN IN</span>
+        <div class="btn-ripple"></div>
+      </button>
+    <% end %>
+
+    <div class="signup-link">
+      <p>
+        Don't have an account?
+        <%= link_to "Create account", new_registration_path(resource_name) %>
+      </p>
+    </div>
+  </div>
+</div>
+
+<%= javascript_include_tag "devise_material", defer: true %>
+

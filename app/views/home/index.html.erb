@@ -1,0 +1,21 @@
+<div class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-xl rounded-2xl bg-white p-8 shadow">
+    <h1 class="text-2xl font-semibold">URL Validator</h1>
+
+    <div class="mt-6 space-y-3">
+      <% if user_signed_in? %>
+        <p class="text-gray-700">Signed in as <strong><%= current_user.email %></strong></p>
+
+        <div class="flex gap-3">
+          <%= link_to "Open Admin", "/admin", class: "rounded-md bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700" %>
+          <%= button_to "Sign out", destroy_user_session_path, method: :delete,
+                class: "rounded-md bg-gray-200 px-4 py-2 text-gray-900 hover:bg-gray-300" %>
+        </div>
+      <% else %>
+        <%= link_to "Sign in", new_user_session_path, class: "text-indigo-600 hover:underline" %>
+        <span class="text-gray-400">·</span>
+        <%= link_to "Sign up", new_user_registration_path, class: "text-indigo-600 hover:underline" %>
+      <% end %>
+    </div>
+  </div>
+</div>
