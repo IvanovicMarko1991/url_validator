@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  mount IronAdmin::Engine => "/admin"
   namespace :api do
     namespace :v1 do
       resources :csv_imports, only: [ :create ]

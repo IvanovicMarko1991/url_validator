@@ -65,17 +65,6 @@ module Api
           attempts_count: result.attempts_count
         }
       end
-
-      def invalids_csv
-        run = UrlValidationRun.find(params[:id])
-        csv_data = UrlValidation::InvalidsCsvExporter.call(run:)
-
-        send_data(
-          csv_data,
-          filename: "url_validation_run_#{run.id}_invalids.csv",
-          type: "text/csv"
-        )
-      end
     end
   end
 end
