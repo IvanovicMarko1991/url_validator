@@ -1,4 +1,5 @@
 class ApplicationController < ActionController::Base
+  include EventContext
   before_action :authenticate_user!
   skip_before_action :authenticate_user!, if: :devise_controller?
 

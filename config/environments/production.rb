@@ -87,4 +87,8 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Use a real queuing backend for Active Storage (and separate queues per environment).
+  config.log_tags = [:request_id]
+  config.logger.formatter = JsonLogFormatter.new
 end

@@ -47,10 +47,22 @@ gem "csv"
 
 # Simple, efficient background jobs for Ruby.
 gem "sidekiq"
+# Use sidekiq-cron for scheduling recurring background jobs [
 gem "sidekiq-cron"
-gem "iron_admin"
+
+# Tailwind CSS integration for Rails [
 gem "tailwindcss-rails"
+
+# Authentication solution for Rails [
 gem "devise", "~> 5.0"
+
+# Admin interface for Rails applications [
+gem "iron_admin"
+
+gem "prometheus_exporter"
+gem "opentelemetry-sdk"
+gem "opentelemetry-exporter-otlp"
+gem "opentelemetry-instrumentation-all"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

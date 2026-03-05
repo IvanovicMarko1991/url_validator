@@ -3,6 +3,9 @@ Rails.application.routes.draw do
   devise_for :users
   mount IronAdmin::Engine => "/admin"
 
+  get "/healthz", to: "health#healthz"
+  get "/readyz", to: "health#readyz"
+
   namespace :api do
     namespace :v1 do
       get "me", to: "me#show"

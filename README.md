@@ -127,3 +127,43 @@ Acme,Backend Engineer,https://acme.com/jobs/123,acme-123
 Acme,Frontend Engineer,https://acme.com/jobs/456,acme-456
 Globex,QA Engineer,https://globex.com/careers/qa-1,globex-qa-1
 ```
+
+## Observability
+
+This project includes lightweight observability primitives: structured logs, domain events, Prometheus metrics, and health probes.
+
+### Structured logs (JSON)
+Production logs can be emitted as JSON (easy ingestion into ELK/Loki/Datadog).
+Fields include `timestamp`, `level`, `request_id`, and structured event payloads.
+
+### Structured domain events (Rails.event)
+On Rails 8.1+, we emit domain events via `Rails.event.notify(...)` for key workflows:
+- CSV import created
+- validation run queued/completed
+- per-result completion (status, http_status, host, duration)
+
+An initializer subscribes to these events and logs them as structured JSON.
+
+### Metrics (Prometheus)
+We use `prometheus_exporter` in multi-process mode (Rails + Sidekiq push metrics to a collector).
+Run the collector locally:
+
+    bundle exec prometheus_exporter -b 0.0.0.0 -p 9394
+
+Metrics endpoint:
+
+    http://localhost:9394/metrics
+
+### Health checks
+- `GET /healthz` → liveness (app booted)
+- `GET /readyz` → readiness (DB + Redis reachable)
+
+### Optional tracing (OpenTelemetry)
+Enable traces by setting:
+
+- `OTEL_EXPORTER_OTLP_ENDPOINT`
+- `OTEL_SERVICE_NAME` (optional)
+
+and adding the OpenTelemetry gems + initializer.
+
+

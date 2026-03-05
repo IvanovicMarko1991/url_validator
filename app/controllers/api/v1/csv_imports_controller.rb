@@ -10,6 +10,9 @@ module Api
         run = create_validation_run(csv_import, import_result)
         queue_prepare_run(run, import_result)
 
+        Rails.event.notify("csv_import.created", csv_import_id: csv_import.id, filename: csv_import.source_file) if Rails.respond_to?(:event)
+        Rails.event.notify("validation_run.queued", run_id: run.id, job_count: import_result.job_ids.size) if Rails.respond_to?(:event)
+
         render json: response_payload(csv_import, run), status: :accepted
       end
 

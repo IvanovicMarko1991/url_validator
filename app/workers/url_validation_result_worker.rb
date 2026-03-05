@@ -34,6 +34,15 @@ class UrlValidationResultWorker
 
       payload = check_url(result)
       complete_result!(payload)
+
+      Rails.event.notify("url_validation.result.completed",
+        run_id: result.url_validation_run_id,
+        result_id: result.id,
+        job_id: result.job_id,
+        status: result.status,
+        http_status: result.http_status,
+        host: result.job.external_host
+      ) if Rails.respond_to?(:event)
     ensure
       release_global_slot
     end

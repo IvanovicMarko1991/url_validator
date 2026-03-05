@@ -1,5 +1,6 @@
 module Api
   class BaseController < ActionController::Base
+    include EventContext
     protect_from_forgery with: :null_session
 
     before_action :authenticate_user!
