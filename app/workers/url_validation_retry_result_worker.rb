@@ -14,7 +14,7 @@ class UrlValidationRetryResultWorker
     result = load_result
     return unless result
 
-    payload = UrlValidation::Checker.call(result.job.external_url)
+    payload = UrlValidation::Checker.call(result.job.external_url, expected_title: result.job.title)
     persist_retry_outcome(payload)
   rescue => e
     release_retry_lease

@@ -152,7 +152,7 @@ class UrlValidationResultWorker
       url: result.job.external_url,
       host: result.job.external_host
     ) do
-      UrlValidation::Checker.call(result.job.external_url)
+      UrlValidation::Checker.call(result.job.external_url, expected_title: result.job.title)
     end
   end
 
@@ -183,7 +183,10 @@ class UrlValidationResultWorker
         last_validation_status: result.status,
         last_http_status: result.http_status,
         last_error: result.error_message,
-        last_validated_at: result.checked_at
+        last_validated_at: result.checked_at,
+        page_title: payload[:page_title],
+        title_match: payload[:page_title],
+        content_error: payload[:content_error]
       )
 
       valid_inc = result.status.to_s == "valid" ? 1 : 0

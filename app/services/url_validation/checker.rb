@@ -9,12 +9,13 @@ module UrlValidation
 
     FALLBACK_TO_GET_HTTP_CODES = [ 403, 405, 501 ].freeze
 
-    def self.call(url)
-      new(url).call
+    def self.call(url, expected_title: nil)
+      new(url, expected_title: expected_title).call
     end
 
-    def initialize(url)
+    def initialize(url, expected_title: nil)
       @url = url.to_s.strip
+      @expected_title = expected_title
     end
 
     def call
@@ -114,14 +115,17 @@ module UrlValidation
       end
     end
 
-    def ok(status, http_status, final_uri, error_message, ms)
+    def ok(status, http_status, final_uri, error_message, ms, page_title = nil, title_match = nil, content_error = nil)
       {
         status: status,
         http_status: http_status,
         final_url: final_uri.to_s,
         error_message: error_message,
         response_time_ms: ms,
-        checked_at: Time.current
+        checked_at: Time.current,
+        page_title: page_title,
+        title_match: title_match,
+        content_error: content_error
       }
     end
 

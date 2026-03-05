@@ -66,7 +66,8 @@ module CsvImports
       validate_required_fields(company_name, title, external_url)
 
       company = find_or_create_company(company_name)
-      job = find_or_initialize_job(company, external_url, external_id)
+      normalized_url = UrlValidation::UrlNormalizer.normalize(external_url)
+      job = find_or_initialize_job(company, normalized_url, external_id)
 
       update_job_attributes(job, title, external_url, external_id, external_host)
       job.save!
@@ -92,11 +93,11 @@ module CsvImports
       Company.find_or_create_by!(name: company_name)
     end
 
-    def find_or_initialize_job(company, external_url, external_id)
+    def find_or_initialize_job(company, normalized_url, external_id)
       if external_id.present?
         Job.find_or_initialize_by(company: company, external_id: external_id)
       else
-        Job.find_or_initialize_by(company: company, external_url: external_url)
+        Job.find_or_initialize_by(company: company, normalized_external_url: normalized_url)
       end
     end
 
@@ -104,7 +105,8 @@ module CsvImports
       job.title = title
       job.external_url = external_url
       job.external_id = external_id if external_id.present?
-      job.external_host = URI.parse(external_url).host rescue nil
+      job.normalized_external_url = normalized_url
+      job.external_host = UrlValidation::UrlNormalizer.host(normalized_url)
     end
 
     def log_row_error(error)

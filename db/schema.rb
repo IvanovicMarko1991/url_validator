@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_204923) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_05_175034) do
   create_table "companies", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "domain"
@@ -41,9 +41,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_204923) do
     t.integer "last_http_status"
     t.datetime "last_validated_at"
     t.integer "last_validation_status", default: 0, null: false
+    t.text "normalized_external_url"
     t.string "title", null: false
     t.datetime "updated_at", null: false
+    t.index ["company_id", "external_id"], name: "idx_jobs_company_external_id_unique", unique: true, where: "external_id IS NOT NULL"
     t.index ["company_id", "external_id"], name: "index_jobs_on_company_id_and_external_id", unique: true
+    t.index ["company_id", "normalized_external_url"], name: "idx_jobs_company_normalized_url_when_no_external_id", unique: true, where: "external_id IS NULL AND normalized_external_url IS NOT NULL"
     t.index ["company_id"], name: "index_jobs_on_company_id"
     t.index ["external_host"], name: "index_jobs_on_external_host"
     t.index ["last_validation_status"], name: "index_jobs_on_last_validation_status"
@@ -52,6 +55,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_204923) do
   create_table "url_validation_results", force: :cascade do |t|
     t.integer "attempts_count", default: 0, null: false
     t.datetime "checked_at"
+    t.text "content_error"
     t.datetime "created_at", null: false
     t.text "error_message"
     t.text "final_url"
@@ -60,12 +64,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_204923) do
     t.integer "job_id", null: false
     t.datetime "last_retry_at"
     t.datetime "lease_expires_at"
+    t.text "page_title"
     t.integer "processing_state", default: 0, null: false
     t.integer "response_time_ms"
     t.boolean "retry_eligible", default: true, null: false
     t.datetime "started_at"
     t.integer "status"
     t.integer "timeout_retry_count", default: 0, null: false
+    t.boolean "title_match"
     t.datetime "updated_at", null: false
     t.integer "url_validation_run_id", null: false
     t.string "worker_jid"

@@ -55,7 +55,7 @@ module UrlValidation
     end
 
     def validate_job_url(job)
-      result_data = UrlValidation::Checker.call(job.external_url)
+      result_data = UrlValidation::Checker.call(job.external_url, expected_title: job.title)
       run.url_validation_results.create!(
         job: job,
         **result_data
